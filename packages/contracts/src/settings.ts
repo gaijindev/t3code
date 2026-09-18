@@ -890,6 +890,36 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
+    bonsaiEnabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(true)),
+      Schema.annotateKey({
+        title: "Enable Bonsai 2 27B",
+        description: "Add the local Bonsai model served by PrismML llama.cpp.",
+        providerSettingsForm: { control: "switch" },
+      }),
+    ),
+    bonsaiBaseUrl: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("http://127.0.0.1:8080/v1")),
+      Schema.annotateKey({
+        title: "Bonsai llama.cpp URL",
+        description: "OpenAI-compatible PrismML llama.cpp endpoint serving Bonsai.",
+        providerSettingsForm: {
+          placeholder: "http://127.0.0.1:8080/v1",
+          clearWhenEmpty: "persist",
+        },
+      }),
+    ),
+    bonsaiModel: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("bonsai-2-27b-crack")),
+      Schema.annotateKey({
+        title: "Bonsai model",
+        description: "The model identifier exposed by the local llama.cpp server.",
+        providerSettingsForm: {
+          placeholder: "bonsai-2-27b-crack",
+          clearWhenEmpty: "persist",
+        },
+      }),
+    ),
     customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
@@ -903,6 +933,9 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
       "baronllmEnabled",
       "baronllmBaseUrl",
       "baronllmModel",
+      "bonsaiEnabled",
+      "bonsaiBaseUrl",
+      "bonsaiModel",
     ],
   },
 );
@@ -1428,6 +1461,9 @@ const OpenCodeSettingsPatch = Schema.Struct({
   baronllmEnabled: Schema.optionalKey(Schema.Boolean),
   baronllmBaseUrl: Schema.optionalKey(TrimmedString),
   baronllmModel: Schema.optionalKey(TrimmedString),
+  bonsaiEnabled: Schema.optionalKey(Schema.Boolean),
+  bonsaiBaseUrl: Schema.optionalKey(TrimmedString),
+  bonsaiModel: Schema.optionalKey(TrimmedString),
   customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 

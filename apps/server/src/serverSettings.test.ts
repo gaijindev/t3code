@@ -958,6 +958,9 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         baronllmEnabled: true,
         baronllmBaseUrl: "http://127.0.0.1:11435/v1",
         baronllmModel: "baronllm:latest",
+        bonsaiEnabled: true,
+        bonsaiBaseUrl: "http://127.0.0.1:8080/v1",
+        bonsaiModel: "bonsai-2-27b-crack",
         customModels: [],
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),

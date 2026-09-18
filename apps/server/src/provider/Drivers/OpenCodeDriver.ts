@@ -63,14 +63,41 @@ const DRIVER_KIND = ProviderDriverKind.make("opencode");
 
 /**
  * OpenCode reads provider definitions from OPENCODE_CONFIG_CONTENT. Keep the
- * BaronLLM bridge here, at the provider boundary, so every OpenCode surface
- * (local, desktop, and remote server) receives the same model definition.
+ * local model bridges here, at the provider boundary, so every OpenCode
+ * surface receives the same model definitions.
  */
-function addBaronllmProvider(
+function addLocalProviders(
   environment: NodeJS.ProcessEnv,
   settings: OpenCodeSettings,
 ): NodeJS.ProcessEnv {
-  if (!settings.baronllmEnabled || !settings.baronllmBaseUrl || !settings.baronllmModel) {
+  const localProviders = [
+    settings.baronllmEnabled && {
+      id: "baronllm",
+      baseUrl: settings.baronllmBaseUrl,
+      model: settings.baronllmModel,
+      providerName: "BaronLLM (local Ollama)",
+      modelName: "BaronLLM",
+    },
+    settings.bonsaiEnabled && {
+      id: "bonsai",
+      baseUrl: settings.bonsaiBaseUrl,
+      model: settings.bonsaiModel,
+      providerName: "Bonsai 2 27B (local PrismML llama.cpp)",
+      modelName: "Bonsai 2 27B",
+    },
+  ].filter(
+    (
+      provider,
+    ): provider is {
+      id: string;
+      baseUrl: string;
+      model: string;
+      providerName: string;
+      modelName: string;
+    } => Boolean(provider?.baseUrl && provider.model),
+  );
+
+  if (localProviders.length === 0) {
     return environment;
   }
 
@@ -94,50 +121,52 @@ function addBaronllmProvider(
     !Array.isArray(config.provider)
       ? (config.provider as Record<string, unknown>)
       : {};
-  const currentBaronllm =
-    typeof providers.baronllm === "object" &&
-    providers.baronllm !== null &&
-    !Array.isArray(providers.baronllm)
-      ? (providers.baronllm as Record<string, unknown>)
-      : {};
-  const models =
-    typeof currentBaronllm.models === "object" &&
-    currentBaronllm.models !== null &&
-    !Array.isArray(currentBaronllm.models)
-      ? (currentBaronllm.models as Record<string, unknown>)
-      : {};
-  const options =
-    typeof currentBaronllm.options === "object" &&
-    currentBaronllm.options !== null &&
-    !Array.isArray(currentBaronllm.options)
-      ? (currentBaronllm.options as Record<string, unknown>)
-      : {};
-  const currentModel =
-    typeof models[settings.baronllmModel] === "object" &&
-    models[settings.baronllmModel] !== null &&
-    !Array.isArray(models[settings.baronllmModel])
-      ? (models[settings.baronllmModel] as Record<string, unknown>)
-      : {};
+  const localProviderConfig = { ...providers };
+  for (const provider of localProviders) {
+    const currentProvider =
+      typeof localProviderConfig[provider.id] === "object" &&
+      localProviderConfig[provider.id] !== null &&
+      !Array.isArray(localProviderConfig[provider.id])
+        ? (localProviderConfig[provider.id] as Record<string, unknown>)
+        : {};
+    const models =
+      typeof currentProvider.models === "object" &&
+      currentProvider.models !== null &&
+      !Array.isArray(currentProvider.models)
+        ? (currentProvider.models as Record<string, unknown>)
+        : {};
+    const options =
+      typeof currentProvider.options === "object" &&
+      currentProvider.options !== null &&
+      !Array.isArray(currentProvider.options)
+        ? (currentProvider.options as Record<string, unknown>)
+        : {};
+    const currentModel =
+      typeof models[provider.model] === "object" &&
+      models[provider.model] !== null &&
+      !Array.isArray(models[provider.model])
+        ? (models[provider.model] as Record<string, unknown>)
+        : {};
 
-  config.provider = {
-    ...providers,
-    baronllm: {
-      ...currentBaronllm,
+    localProviderConfig[provider.id] = {
+      ...currentProvider,
       npm: "@ai-sdk/openai-compatible",
-      name: "BaronLLM (local Ollama)",
+      name: provider.providerName,
       options: {
         ...options,
-        baseURL: settings.baronllmBaseUrl,
+        baseURL: provider.baseUrl,
       },
       models: {
         ...models,
-        [settings.baronllmModel]: {
+        [provider.model]: {
           ...currentModel,
-          name: "BaronLLM",
+          name: provider.modelName,
         },
       },
-    },
-  };
+    };
+  }
+
+  config.provider = localProviderConfig;
 
   return { ...environment, OPENCODE_CONFIG_CONTENT: JSON.stringify(config) };
 }
@@ -190,7 +219,7 @@ export const OpenCodeDriver: ProviderDriver<OpenCodeSettings, OpenCodeDriverEnv>
       const serverSettings = yield* ServerSettingsService;
       const eventLoggers = yield* ProviderEventLoggers;
       const effectiveConfig = { ...config, enabled } satisfies OpenCodeSettings;
-      const processEnv = addBaronllmProvider(
+      const processEnv = addLocalProviders(
         mergeProviderInstanceEnvironment(environment),
         effectiveConfig,
       );
