@@ -138,6 +138,9 @@ const makeOpenCodeConfig = (overrides: Partial<OpenCodeSettings>): OpenCodeSetti
   binaryPath: "opencode",
   serverUrl: "",
   serverPassword: "",
+  baronllmEnabled: true,
+  baronllmBaseUrl: "http://127.0.0.1:11435/v1",
+  baronllmModel: "baronllm:latest",
   customModels: [],
   ...overrides,
 });

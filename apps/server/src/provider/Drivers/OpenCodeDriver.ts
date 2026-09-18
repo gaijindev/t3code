@@ -89,7 +89,9 @@ function addBaronllmProvider(
   }
 
   const providers =
-    typeof config.provider === "object" && config.provider !== null && !Array.isArray(config.provider)
+    typeof config.provider === "object" &&
+    config.provider !== null &&
+    !Array.isArray(config.provider)
       ? (config.provider as Record<string, unknown>)
       : {};
   const currentBaronllm =
@@ -104,6 +106,18 @@ function addBaronllmProvider(
     !Array.isArray(currentBaronllm.models)
       ? (currentBaronllm.models as Record<string, unknown>)
       : {};
+  const options =
+    typeof currentBaronllm.options === "object" &&
+    currentBaronllm.options !== null &&
+    !Array.isArray(currentBaronllm.options)
+      ? (currentBaronllm.options as Record<string, unknown>)
+      : {};
+  const currentModel =
+    typeof models[settings.baronllmModel] === "object" &&
+    models[settings.baronllmModel] !== null &&
+    !Array.isArray(models[settings.baronllmModel])
+      ? (models[settings.baronllmModel] as Record<string, unknown>)
+      : {};
 
   config.provider = {
     ...providers,
@@ -112,21 +126,13 @@ function addBaronllmProvider(
       npm: "@ai-sdk/openai-compatible",
       name: "BaronLLM (local Ollama)",
       options: {
-        ...(typeof currentBaronllm.options === "object" &&
-        currentBaronllm.options !== null &&
-        !Array.isArray(currentBaronllm.options)
-          ? currentBaronllm.options
-          : {}),
+        ...options,
         baseURL: settings.baronllmBaseUrl,
       },
       models: {
         ...models,
         [settings.baronllmModel]: {
-          ...(typeof models[settings.baronllmModel] === "object" &&
-          models[settings.baronllmModel] !== null &&
-          !Array.isArray(models[settings.baronllmModel])
-            ? models[settings.baronllmModel]
-            : {}),
+          ...currentModel,
           name: "BaronLLM",
         },
       },
