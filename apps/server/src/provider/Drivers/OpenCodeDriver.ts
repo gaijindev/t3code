@@ -61,6 +61,81 @@ const decodeOpenCodeSettings = Schema.decodeSync(OpenCodeSettings);
 
 const DRIVER_KIND = ProviderDriverKind.make("opencode");
 
+/**
+ * OpenCode reads provider definitions from OPENCODE_CONFIG_CONTENT. Keep the
+ * BaronLLM bridge here, at the provider boundary, so every OpenCode surface
+ * (local, desktop, and remote server) receives the same model definition.
+ */
+function addBaronllmProvider(
+  environment: NodeJS.ProcessEnv,
+  settings: OpenCodeSettings,
+): NodeJS.ProcessEnv {
+  if (!settings.baronllmEnabled || !settings.baronllmBaseUrl || !settings.baronllmModel) {
+    return environment;
+  }
+
+  let config: Record<string, unknown> = {};
+  const existing = environment.OPENCODE_CONFIG_CONTENT?.trim();
+  if (existing) {
+    try {
+      const parsed: unknown = JSON.parse(existing);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        config = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Replace malformed injected config rather than preventing OpenCode
+      // from starting. The provider settings remain the source of truth.
+    }
+  }
+
+  const providers =
+    typeof config.provider === "object" && config.provider !== null && !Array.isArray(config.provider)
+      ? (config.provider as Record<string, unknown>)
+      : {};
+  const currentBaronllm =
+    typeof providers.baronllm === "object" &&
+    providers.baronllm !== null &&
+    !Array.isArray(providers.baronllm)
+      ? (providers.baronllm as Record<string, unknown>)
+      : {};
+  const models =
+    typeof currentBaronllm.models === "object" &&
+    currentBaronllm.models !== null &&
+    !Array.isArray(currentBaronllm.models)
+      ? (currentBaronllm.models as Record<string, unknown>)
+      : {};
+
+  config.provider = {
+    ...providers,
+    baronllm: {
+      ...currentBaronllm,
+      npm: "@ai-sdk/openai-compatible",
+      name: "BaronLLM (local Ollama)",
+      options: {
+        ...(typeof currentBaronllm.options === "object" &&
+        currentBaronllm.options !== null &&
+        !Array.isArray(currentBaronllm.options)
+          ? currentBaronllm.options
+          : {}),
+        baseURL: settings.baronllmBaseUrl,
+      },
+      models: {
+        ...models,
+        [settings.baronllmModel]: {
+          ...(typeof models[settings.baronllmModel] === "object" &&
+          models[settings.baronllmModel] !== null &&
+          !Array.isArray(models[settings.baronllmModel])
+            ? models[settings.baronllmModel]
+            : {}),
+          name: "BaronLLM",
+        },
+      },
+    },
+  };
+
+  return { ...environment, OPENCODE_CONFIG_CONTENT: JSON.stringify(config) };
+}
+
 function isOpenCodeNativeCommandPath(commandPath: string): boolean {
   const normalized = normalizeCommandPath(commandPath);
   return (
@@ -108,7 +183,11 @@ export const OpenCodeDriver: ProviderDriver<OpenCodeSettings, OpenCodeDriverEnv>
       const httpClient = yield* HttpClient.HttpClient;
       const serverSettings = yield* ServerSettingsService;
       const eventLoggers = yield* ProviderEventLoggers;
-      const processEnv = mergeProviderInstanceEnvironment(environment);
+      const effectiveConfig = { ...config, enabled } satisfies OpenCodeSettings;
+      const processEnv = addBaronllmProvider(
+        mergeProviderInstanceEnvironment(environment),
+        effectiveConfig,
+      );
       const continuationIdentity = defaultProviderContinuationIdentity({
         driverKind: DRIVER_KIND,
         instanceId,
@@ -120,7 +199,6 @@ export const OpenCodeDriver: ProviderDriver<OpenCodeSettings, OpenCodeDriverEnv>
         accentColor,
         continuationGroupKey: continuationIdentity.continuationKey,
       });
-      const effectiveConfig = { ...config, enabled } satisfies OpenCodeSettings;
       const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
         resolveProviderMaintenanceCapabilitiesEffect(UPDATE, {
           binaryPath: effectiveConfig.binaryPath,

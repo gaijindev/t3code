@@ -860,13 +860,50 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
+    baronllmEnabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(true)),
+      Schema.annotateKey({
+        title: "Enable BaronLLM (Ollama)",
+        description: "Add the local BaronLLM model to OpenCode's model selector.",
+        providerSettingsForm: { control: "switch" },
+      }),
+    ),
+    baronllmBaseUrl: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("http://127.0.0.1:11435/v1")),
+      Schema.annotateKey({
+        title: "BaronLLM Ollama URL",
+        description: "OpenAI-compatible Ollama endpoint serving BaronLLM.",
+        providerSettingsForm: {
+          placeholder: "http://127.0.0.1:11435/v1",
+          clearWhenEmpty: "persist",
+        },
+      }),
+    ),
+    baronllmModel: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("baronllm:latest")),
+      Schema.annotateKey({
+        title: "BaronLLM model",
+        description: "The Ollama model tag to show in OpenCode.",
+        providerSettingsForm: {
+          placeholder: "baronllm:latest",
+          clearWhenEmpty: "persist",
+        },
+      }),
+    ),
     customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
   },
   {
-    order: ["binaryPath", "serverUrl", "serverPassword"],
+    order: [
+      "binaryPath",
+      "serverUrl",
+      "serverPassword",
+      "baronllmEnabled",
+      "baronllmBaseUrl",
+      "baronllmModel",
+    ],
   },
 );
 export type OpenCodeSettings = typeof OpenCodeSettings.Type;
@@ -1388,6 +1425,9 @@ const OpenCodeSettingsPatch = Schema.Struct({
   binaryPath: Schema.optionalKey(TrimmedString),
   serverUrl: Schema.optionalKey(TrimmedString),
   serverPassword: Schema.optionalKey(TrimmedString),
+  baronllmEnabled: Schema.optionalKey(Schema.Boolean),
+  baronllmBaseUrl: Schema.optionalKey(TrimmedString),
+  baronllmModel: Schema.optionalKey(TrimmedString),
   customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
